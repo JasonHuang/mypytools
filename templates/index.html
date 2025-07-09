@@ -1,0 +1,175 @@
+
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-images"></i> {{ title }}</h1>
+            <p>专业的图片处理和文件管理工具</p>
+            <div class="status-badge">
+                <i class="fas fa-check-circle"></i> 服务运行中
+            </div>
+        </div>
+        
+        <div class="main-content">
+            <div class="functions-panel">
+                <div class="tab-nav">
+                    <button class="tab-btn active" onclick="switchTab('collect')">
+                        <i class="fas fa-list"></i> 文件名收集
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('compress')">
+                        <i class="fas fa-compress-alt"></i> 图片压缩
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('convert')">
+                        <i class="fas fa-exchange-alt"></i> 格式转换
+                    </button>
+                </div>
+                
+                <div class="tab-content">
+                    <!-- 文件名收集 -->
+                    <div id="collect" class="tab-pane active">
+                        <div class="function-desc">
+                            <i class="fas fa-info-circle"></i> 收集指定目录中的所有图片文件名，并保存到文本文件中
+                        </div>
+                        
+                        <form id="collectForm">
+                            <div class="form-group">
+                                <label for="collectDir">源路径:</label>
+                                <div class="file-input-group">
+                                    <input type="text" id="collectDir" name="source_path" placeholder="请选择目录" readonly>
+                                    <button type="button" class="file-btn" onclick="selectDirectory('collectDir')">
+                                        <i class="fas fa-folder-open"></i> 选择
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="includeSubdirs" name="include_subdirs" checked>
+                                <label for="includeSubdirs">包含子目录</label>
+                            </div>
+                            
+                            <div class="checkbox-group">
+                                <input type="checkbox" id="removeExtension" name="remove_extension">
+                                <label for="removeExtension">去除文件扩展名</label>
+                            </div>
+                            
+                            <button type="button" class="btn" onclick="collectFilenames()">
+                                <i class="fas fa-play"></i> 开始收集
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- 图片压缩 -->
+                    <div id="compress" class="tab-pane">
+                        <div class="function-desc">
+                            <i class="fas fa-info-circle"></i> 批量压缩图片文件，减小文件大小，支持自定义质量和尺寸
+                        </div>
+                        
+                        <form id="compressForm">
+                            <div class="form-group">
+                                <label for="compressDir">源路径:</label>
+                                <div class="file-input-group">
+                                    <input type="text" id="compressDir" name="source_path" placeholder="请选择文件或目录" readonly>
+                                    <button type="button" class="file-btn" onclick="selectPath('compressDir')">
+                                        <i class="fas fa-folder-open"></i> 选择
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="compressOutput">输出路径:</label>
+                                <input type="text" id="compressOutput" name="output_path" placeholder="压缩后的图片保存路径">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="quality">压缩质量 (1-100):</label>
+                                <input type="number" id="quality" name="quality" min="1" max="100" value="85">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="maxWidth">最大宽度 (像素，可选):</label>
+                                <input type="number" id="maxWidth" name="max_width" placeholder="留空表示不限制">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="maxHeight">最大高度 (像素，可选):</label>
+                                <input type="number" id="maxHeight" name="max_height" placeholder="留空表示不限制">
+                            </div>
+                            
+                            <button type="button" class="btn" onclick="compressImages()">
+                                <i class="fas fa-play"></i> 开始压缩
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <!-- 格式转换 -->
+                    <div id="convert" class="tab-pane">
+                        <div class="function-desc">
+                            <i class="fas fa-info-circle"></i> 将图片转换为其他格式，支持 HEIC、JPEG、PNG 等格式互转
+                        </div>
+                        
+                        <form id="convertForm">
+                            <div class="form-group">
+                                <label for="convertDir">源路径:</label>
+                                <div class="file-input-group">
+                                    <input type="text" id="convertDir" name="source_path" placeholder="请选择文件或目录" readonly>
+                                    <button type="button" class="file-btn" onclick="selectPath('convertDir')">
+                                        <i class="fas fa-folder-open"></i> 选择
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="convertOutput">输出路径:</label>
+                                <input type="text" id="convertOutput" name="output_path" placeholder="转换后的图片保存路径">
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="targetFormat">目标格式:</label>
+                                <select id="targetFormat" name="target_format">
+                                    <option value="jpg">JPEG (.jpg)</option>
+                                    <option value="png">PNG (.png)</option>
+                                    <option value="webp">WebP (.webp)</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="convertQuality">转换质量 (1-100):</label>
+                                <input type="number" id="convertQuality" name="quality" min="1" max="100" value="95">
+                            </div>
+                            
+                            <button type="button" class="btn" onclick="convertImages()">
+                                <i class="fas fa-play"></i> 开始转换
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="logs-panel">
+                <div class="logs-header">
+                    <div class="logs-title">
+                        <i class="fas fa-terminal"></i> 实时日志
+                    </div>
+                    <button class="clear-btn" onclick="clearLogs()">
+                        <i class="fas fa-trash"></i> 清除
+                    </button>
+                </div>
+                <div class="logs-content" id="logsContent">
+                    <!-- 日志内容将通过 JavaScript 动态添加 -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
+    
