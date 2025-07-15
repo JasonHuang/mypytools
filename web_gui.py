@@ -5,13 +5,16 @@ Web版图片处理工具GUI
 使用Flask提供Web界面，完全兼容所有操作系统
 """
 
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, abort
+from werkzeug.utils import secure_filename
 import os
 import json
 import webbrowser
 import threading
 import time
 from datetime import datetime
+import tempfile
+import shutil
 
 app = Flask(__name__)
 
@@ -24,6 +27,94 @@ def add_log(message):
     log_entry = f"[{timestamp}] {message}"
     operation_logs.append(log_entry)
     print(log_entry)
+
+def handle_file_upload_compression():
+    """处理文件上传的图片压缩"""
+    try:
+        # 获取目标大小
+        target_size_mb = float(request.form.get('target_size_mb', 2.0))
+        
+        add_log(f"🗜️ 开始处理上传的文件压缩")
+        add_log(f"   目标大小: {target_size_mb} MB")
+        
+        # 获取上传的文件
+        uploaded_file = request.files.get('file')
+        if not uploaded_file or uploaded_file.filename == '':
+            error_msg = "❌ 没有找到上传的文件"
+            add_log(error_msg)
+            return jsonify({'success': False, 'error': error_msg})
+        
+        # 安全地获取文件大小
+        try:
+            file_size = uploaded_file.content_length or 0
+            if file_size > 0:
+                add_log(f"📁 接收到文件: {uploaded_file.filename} ({file_size / 1024 / 1024:.2f} MB)")
+            else:
+                add_log(f"📁 接收到文件: {uploaded_file.filename}")
+        except:
+            add_log(f"📁 接收到文件: {uploaded_file.filename}")
+        
+        # 创建uploads目录
+        uploads_dir = os.path.join(os.getcwd(), 'uploads')
+        os.makedirs(uploads_dir, exist_ok=True)
+        
+        # 生成唯一的文件名
+        timestamp = int(time.time())
+        name, ext = os.path.splitext(uploaded_file.filename)
+        safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '-', '_')).rstrip()
+        
+        input_filename = f"{safe_name}_{timestamp}{ext}"
+        output_filename = f"{safe_name}_{timestamp}_compressed{ext}"
+        
+        input_path = os.path.join(uploads_dir, input_filename)
+        output_path = os.path.join(uploads_dir, output_filename)
+        
+        # 保存上传的文件
+        uploaded_file.save(input_path)
+        add_log(f"💾 文件已保存: {input_filename}")
+        
+        # 导入压缩功能
+        from compress_images import compress_image
+        
+        # 调用压缩函数
+        success = compress_image(
+            input_path, 
+            output_path, 
+            target_size_mb=target_size_mb,
+            log_func=add_log
+        )
+        
+        if success:
+            # 获取压缩后的文件大小
+            compressed_size = os.path.getsize(output_path) / 1024 / 1024
+            add_log(f"✅ 压缩完成！文件大小: {compressed_size:.2f} MB")
+            
+            # 删除原始上传文件
+            try:
+                os.remove(input_path)
+            except:
+                pass
+            
+            return jsonify({
+                'success': True, 
+                'message': '图片压缩成功',
+                'download_url': f'/download/{output_filename}',
+                'filename': output_filename,
+                'size': f"{compressed_size:.2f} MB"
+            })
+        else:
+            # 删除上传的文件
+            try:
+                os.remove(input_path)
+            except:
+                pass
+            add_log("❌ 压缩失败")
+            return jsonify({'success': False, 'error': '图片压缩失败'})
+            
+    except Exception as e:
+        error_msg = f"❌ 文件上传压缩失败: {str(e)}"
+        add_log(error_msg)
+        return jsonify({'success': False, 'error': error_msg})
 
 @app.route('/')
 def index():
@@ -108,27 +199,122 @@ def collect_filenames():
 def compress_images():
     """图片压缩API"""
     try:
+        # 检查是否是文件上传请求
+        if request.content_type and 'multipart/form-data' in request.content_type:
+            # 处理文件上传
+            return handle_file_upload_compression()
+        
+        # 处理JSON请求（目录选择）
         data = request.json
         source_path = data.get('source_path', '')
-        quality = data.get('quality', 85)
-        max_width = data.get('max_width', 1920)
-        recursive = data.get('recursive', False)
+        output_path = data.get('output_path', '')
+        target_size_mb = data.get('target_size_mb', 2.0)
+        files_data = data.get('files_data', [])
         
         add_log(f"🗜️ 开始压缩图片: {source_path}")
-        add_log(f"   压缩质量: {quality}%")
-        add_log(f"   最大宽度: {max_width}px")
-        add_log(f"   递归处理: {'是' if recursive else '否'}")
+        add_log(f"   目标大小: {target_size_mb} MB")
+        add_log(f"   输出路径: {output_path or '覆盖原文件'}")
         
-        # 这里可以调用实际的图片压缩函数
-        # from compress_images import main as compress_main
+        if not files_data:
+            error_msg = "❌ 请先选择文件或目录"
+            add_log(error_msg)
+            return jsonify({'success': False, 'error': error_msg})
         
-        add_log("✅ 图片压缩完成")
-        return jsonify({'success': True, 'message': '图片压缩完成'})
+        # 导入压缩功能
+        from compress_images import compress_image, process_directory
+        
+        success_count = 0
+        total_count = 0
+        
+        # 处理文件
+        import os
+        
+        # 获取当前工作目录作为基础路径
+        base_path = os.getcwd()
+        add_log(f"🔍 当前工作目录: {base_path}")
+        
+        for file_info in files_data:
+            if 'path' in file_info:
+                # 目录选择的情况，使用相对路径
+                relative_path = file_info['path']
+                # 构建完整的文件路径
+                full_file_path = os.path.join(base_path, relative_path)
+            else:
+                # 单个文件选择的情况，文件应该在当前目录
+                filename = file_info['name']
+                full_file_path = os.path.join(base_path, filename)
+            
+            # 检查文件是否存在
+            if not os.path.exists(full_file_path):
+                add_log(f"⚠️ 文件不存在: {full_file_path}")
+                continue
+            
+            # 检查是否为图片文件
+            image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif', '.webp'}
+            if not any(full_file_path.lower().endswith(ext) for ext in image_extensions):
+                continue
+            
+            total_count += 1
+            add_log(f"📷 处理: {full_file_path}")
+            
+            try:
+                # 确定输出路径
+                if output_path and output_path != source_path:
+                    # 如果指定了不同的输出路径，需要创建对应的文件路径
+                    filename = os.path.basename(full_file_path)
+                    final_output_path = os.path.join(output_path, filename)
+                    os.makedirs(output_path, exist_ok=True)
+                else:
+                    # 覆盖原文件
+                    final_output_path = None
+                
+                if compress_image(full_file_path, final_output_path, target_size_mb, log_func=add_log):
+                    success_count += 1
+                    # 显示压缩后大小
+                    final_path = final_output_path or full_file_path
+                    final_size = os.path.getsize(final_path) / (1024 * 1024)
+                    add_log(f"✅ {os.path.basename(full_file_path)} 压缩完成")
+                else:
+                    add_log(f"⚠️ {os.path.basename(full_file_path)} 压缩失败")
+                    
+            except Exception as e:
+                add_log(f"❌ {os.path.basename(full_file_path)} 处理出错: {str(e)}")
+                import traceback
+                add_log(f"🔍 详细错误: {traceback.format_exc()}")
+        
+        if total_count == 0:
+            error_msg = "❌ 未找到可处理的图片文件"
+            add_log(error_msg)
+            return jsonify({'success': False, 'error': error_msg})
+        
+        add_log(f"🎉 压缩完成: {success_count}/{total_count} 个文件成功")
+        return jsonify({
+            'success': True, 
+            'message': f'压缩完成！成功处理 {success_count}/{total_count} 个文件'
+        })
         
     except Exception as e:
         error_msg = f"❌ 图片压缩失败: {str(e)}"
         add_log(error_msg)
         return jsonify({'success': False, 'error': error_msg})
+
+@app.route('/download/<filename>')
+def download_file(filename):
+    """文件下载路由"""
+    try:
+        uploads_dir = os.path.join(os.getcwd(), 'uploads')
+        file_path = os.path.join(uploads_dir, secure_filename(filename))
+        
+        if not os.path.exists(file_path):
+            add_log(f"❌ 文件不存在: {filename}")
+            abort(404)
+        
+        add_log(f"📥 下载文件: {filename}")
+        return send_file(file_path, as_attachment=True, download_name=filename)
+        
+    except Exception as e:
+        add_log(f"❌ 文件下载失败: {str(e)}")
+        abort(500)
 
 @app.route('/api/convert_format', methods=['POST'])
 def convert_format():

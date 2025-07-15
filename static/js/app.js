@@ -95,12 +95,16 @@ function selectPath(inputId) {
                 }
                 targetInput.style.borderColor = 'var(--success-color)';
                 
-                // 存储文件列表
+                // 存储文件列表，包含File对象引用
                 targetInput.dataset.files = JSON.stringify(Array.from(files).map(f => ({
                     name: f.name,
                     size: f.size,
-                    type: f.type
+                    type: f.type,
+                    lastModified: f.lastModified
                 })));
+                
+                // 存储实际的File对象供后续使用
+                targetInput.fileObjects = Array.from(files);
                 
                 addLog(`📄 已选择 ${files.length} 个文件`, 'success');
             }
@@ -137,6 +141,93 @@ function selectPath(inputId) {
 // 表单提交处理
 function submitForm(formId, endpoint) {
     const form = document.getElementById(formId);
+    const sourceInput = form.querySelector('input[readonly]');
+    
+    // 对于压缩功能，检查用户选择的模式
+    if (formId === 'compressForm' && endpoint === '/api/compress_images') {
+        const fileMode = document.getElementById('compressSingleFile').checked;
+        const hasFileObjects = sourceInput && sourceInput.fileObjects && sourceInput.fileObjects.length > 0;
+        
+        addLog(`🔍 压缩模式: ${fileMode ? '单个文件' : '目录'}`, 'info');
+        addLog(`🔍 文件对象存在: ${hasFileObjects}`, 'info');
+        
+        if (fileMode && hasFileObjects) {
+            addLog(`📤 使用文件上传方式处理单个文件`, 'info');
+            // 单个文件模式，使用文件上传方式
+            submitFormWithFileUpload(form, endpoint, sourceInput.fileObjects);
+        } else {
+            addLog(`📋 使用JSON方式处理目录`, 'info');
+            // 目录模式，使用JSON方式
+            submitFormWithJSON(form, endpoint, sourceInput);
+        }
+    } else {
+        // 其他功能保持原有逻辑
+        const hasFileObjects = sourceInput && sourceInput.fileObjects && sourceInput.fileObjects.length > 0;
+        
+        if (hasFileObjects && endpoint === '/api/compress_images') {
+            submitFormWithFileUpload(form, endpoint, sourceInput.fileObjects);
+        } else {
+            submitFormWithJSON(form, endpoint, sourceInput);
+        }
+    }
+}
+
+function submitFormWithFileUpload(form, endpoint, fileObjects) {
+    const formData = new FormData();
+    
+    // 添加单个文件（修改为单文件上传）
+    if (fileObjects && fileObjects.length > 0) {
+        formData.append('file', fileObjects[0]);
+    }
+    
+    // 添加其他表单数据
+    const inputs = form.querySelectorAll('input:not([readonly]), select, textarea');
+    inputs.forEach(input => {
+        if (input.type === 'checkbox') {
+            formData.append(input.name, input.checked);
+        } else if (input.type !== 'file') {
+            formData.append(input.name, input.value);
+        }
+    });
+    
+    // 禁用提交按钮并显示加载状态
+    const submitBtn = form.querySelector('button[type="submit"]');
+    const originalText = submitBtn.innerHTML;
+    submitBtn.disabled = true;
+    submitBtn.classList.add('loading');
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 处理中...';
+    
+    addLog(`🚀 开始执行文件上传: ${endpoint}`, 'info');
+    
+    fetch(endpoint, {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            addLog(`✅ ${data.message}`, 'success');
+            
+            // 如果有下载链接，显示下载按钮
+            if (data.download_url) {
+                showDownloadLink(data.download_url, data.filename, data.size);
+            }
+        } else {
+            addLog(`❌ ${data.message || data.error}`, 'error');
+        }
+    })
+    .catch(error => {
+        addLog(`❌ 网络错误: ${error.message}`, 'error');
+    })
+    .finally(() => {
+        // 恢复按钮状态
+        submitBtn.disabled = false;
+        submitBtn.classList.remove('loading');
+        submitBtn.innerHTML = originalText;
+    });
+}
+
+function submitFormWithJSON(form, endpoint, sourceInput) {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     
@@ -147,7 +238,6 @@ function submitForm(formId, endpoint) {
     });
     
     // 添加文件数据
-    const sourceInput = form.querySelector('input[readonly]');
     if (sourceInput && sourceInput.dataset.files) {
         try {
             data.files_data = JSON.parse(sourceInput.dataset.files);
@@ -315,58 +405,56 @@ function collectFilenames() {
 
 // 图片压缩功能
 function compressImages() {
-    const submitBtn = event.target;
-    const originalText = submitBtn.innerHTML;
+    const fileInput = document.getElementById('compressFile');
+    const targetSizeInput = document.getElementById('targetSize');
     
-    submitBtn.disabled = true;
-    submitBtn.classList.add('loading');
-    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 压缩中...';
-    
-    addLog('开始图片压缩...', 'processing');
-    
-    const compressDirInput = document.getElementById('compressDir');
-    const formData = {
-        source_path: compressDirInput.value,
-        output_path: document.getElementById('compressOutput').value,
-        quality: parseInt(document.getElementById('quality').value),
-        max_width: parseInt(document.getElementById('maxWidth').value) || null,
-        max_height: parseInt(document.getElementById('maxHeight').value) || null
-    };
-    
-    // 添加文件数据
-    if (compressDirInput.dataset.files) {
-        try {
-            formData.files_data = JSON.parse(compressDirInput.dataset.files);
-        } catch (e) {
-            addLog('❌ 文件数据解析失败', 'error');
-            submitBtn.classList.remove('loading');
-            submitBtn.disabled = false;
-            return;
-        }
+    // 检查是否选择了文件
+    if (!fileInput.files || fileInput.files.length === 0) {
+        addLog('❌ 请先选择要压缩的图片文件', 'error');
+        return;
     }
     
+    const file = fileInput.files[0];
+    const targetSize = parseFloat(targetSizeInput.value);
+    
+    addLog(`🗜️ 开始压缩图片: ${file.name}`, 'info');
+    addLog(`📏 目标大小: ${targetSize} MB`, 'info');
+    
+    // 创建FormData
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('target_size_mb', targetSize);
+    
+    // 显示加载状态
+    const btn = document.querySelector('#compressForm .btn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 压缩中...';
+    btn.disabled = true;
+    
+    // 发送请求
     fetch('/api/compress_images', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            addLog(`✅ ${data.message}`, 'success');
+            addLog('✅ ' + data.message, 'success');
+            if (data.download_url) {
+                showDownloadLink(data.download_url, data.filename, data.size);
+            }
         } else {
-            addLog(`❌ ${data.error || data.message}`, 'error');
+            addLog('❌ ' + (data.error || data.message || '压缩失败'), 'error');
         }
     })
     .catch(error => {
-        addLog(`❌ 网络错误: ${error.message}`, 'error');
+        console.error('Error:', error);
+        addLog('❌ 网络错误: ' + error.message, 'error');
     })
     .finally(() => {
-        submitBtn.disabled = false;
-        submitBtn.classList.remove('loading');
-        submitBtn.innerHTML = originalText;
+        // 恢复按钮状态
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     });
 }
 
@@ -440,6 +528,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
     
+    // 初始化文件上传功能
+    setupFileUpload();
+    
     // 键盘快捷键
     document.addEventListener('keydown', function(e) {
         // Ctrl/Cmd + L 清除日志
@@ -453,6 +544,129 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelector('.tab-btn').click();
 });
 
+// 设置输出路径为源路径
+function setOutputToSource(sourceInputId, outputInputId) {
+    const sourceInput = document.getElementById(sourceInputId);
+    const outputInput = document.getElementById(outputInputId);
+    
+    if (!sourceInput.value.trim()) {
+        addLog('❌ 请先选择源路径', 'error');
+        return;
+    }
+    
+    outputInput.value = sourceInput.value;
+    outputInput.style.borderColor = 'var(--success-color)';
+    
+    addLog(`📁 输出路径已设置为源路径: ${sourceInput.value}`, 'success');
+}
+
+// 更新文件大小显示
+function updateSizeDisplay(value) {
+    const display = document.getElementById('sizeDisplay');
+    display.textContent = `${parseFloat(value).toFixed(1)} MB`;
+}
+
+// 文件上传处理
+function setupFileUpload() {
+    const fileInput = document.getElementById('compressFile');
+    const uploadArea = document.querySelector('.file-upload-area');
+    const uploadLabel = document.querySelector('.file-upload-label');
+    
+    // 文件选择事件
+    fileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            showSelectedFile(file);
+        }
+    });
+    
+    // 拖拽事件
+    uploadArea.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadArea.classList.add('dragover');
+    });
+    
+    uploadArea.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+    });
+    
+    uploadArea.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadArea.classList.remove('dragover');
+        
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type.startsWith('image/')) {
+                fileInput.files = files;
+                showSelectedFile(file);
+            } else {
+                addLog('❌ 请选择图片文件', 'error');
+            }
+        }
+    });
+}
+
+// 显示选中的文件
+function showSelectedFile(file) {
+    const uploadArea = document.querySelector('.file-upload-area');
+    
+    // 移除之前的文件信息
+    const existingInfo = uploadArea.querySelector('.file-selected');
+    if (existingInfo) {
+        existingInfo.remove();
+    }
+    
+    // 创建文件信息显示
+    const fileInfo = document.createElement('div');
+    fileInfo.className = 'file-selected';
+    fileInfo.innerHTML = `
+        <i class="fas fa-file-image"></i>
+        <span>${file.name}</span>
+        <small>(${(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+    `;
+    
+    uploadArea.appendChild(fileInfo);
+    addLog(`📁 已选择文件: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`, 'info');
+}
+
+// 显示下载链接
+function showDownloadLink(downloadUrl, filename, size) {
+    // 查找或创建下载区域
+    let downloadArea = document.getElementById('downloadArea');
+    if (!downloadArea) {
+        downloadArea = document.createElement('div');
+        downloadArea.id = 'downloadArea';
+        downloadArea.className = 'download-area';
+        
+        // 插入到压缩表单后面
+        const compressForm = document.getElementById('compressForm');
+        compressForm.parentNode.insertBefore(downloadArea, compressForm.nextSibling);
+    }
+    
+    downloadArea.innerHTML = `
+        <div class="download-card">
+            <div class="download-header">
+                <i class="fas fa-download"></i>
+                <h3>压缩完成</h3>
+            </div>
+            <div class="download-info">
+                <p><strong>文件名:</strong> ${filename}</p>
+                <p><strong>大小:</strong> ${size}</p>
+            </div>
+            <a href="${downloadUrl}" class="download-btn" download>
+                <i class="fas fa-download"></i> 下载压缩后的图片
+            </a>
+        </div>
+    `;
+    
+    // 滚动到下载区域
+    downloadArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    
+    addLog(`📥 文件已准备好下载: ${filename} (${size})`, 'success');
+}
+
 // 导出函数供全局使用
 window.switchTab = switchTab;
 window.selectDirectory = selectDirectory;
@@ -462,3 +676,6 @@ window.clearLogs = clearLogs;
 window.collectFilenames = collectFilenames;
 window.compressImages = compressImages;
 window.convertImages = convertImages;
+window.setOutputToSource = setOutputToSource;
+window.updateSizeDisplay = updateSizeDisplay;
+window.selectCompressSource = selectCompressSource;

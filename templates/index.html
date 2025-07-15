@@ -72,35 +72,28 @@
                             <i class="fas fa-info-circle"></i> 批量压缩图片文件，减小文件大小，支持自定义质量和尺寸
                         </div>
                         
-                        <form id="compressForm">
+                        <form id="compressForm" enctype="multipart/form-data">
                             <div class="form-group">
-                                <label for="compressDir">源路径:</label>
-                                <div class="file-input-group">
-                                    <input type="text" id="compressDir" name="source_path" placeholder="请选择文件或目录" readonly>
-                                    <button type="button" class="file-btn" onclick="selectPath('compressDir')">
-                                        <i class="fas fa-folder-open"></i> 选择
-                                    </button>
+                                <label for="compressFile">选择图片文件:</label>
+                                <div class="file-upload-area">
+                                    <input type="file" id="compressFile" name="file" accept="image/*" class="file-upload-input">
+                                    <div class="file-upload-label">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <span>点击选择图片文件或拖拽到此处</span>
+                                        <small>支持 JPG、PNG、WebP 等格式</small>
+                                    </div>
                                 </div>
                             </div>
                             
                             <div class="form-group">
-                                <label for="compressOutput">输出路径:</label>
-                                <input type="text" id="compressOutput" name="output_path" placeholder="压缩后的图片保存路径">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="quality">压缩质量 (1-100):</label>
-                                <input type="number" id="quality" name="quality" min="1" max="100" value="85">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="maxWidth">最大宽度 (像素，可选):</label>
-                                <input type="number" id="maxWidth" name="max_width" placeholder="留空表示不限制">
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="maxHeight">最大高度 (像素，可选):</label>
-                                <input type="number" id="maxHeight" name="max_height" placeholder="留空表示不限制">
+                                <label for="targetSize">目标文件大小:</label>
+                                <div class="slider-container">
+                                    <input type="range" id="targetSize" name="target_size_mb" min="0.5" max="10" step="0.5" value="2" oninput="updateSizeDisplay(this.value)">
+                                    <div class="slider-display">
+                                        <span id="sizeDisplay">2.0 MB</span>
+                                        <small>拖动滑块调整目标大小</small>
+                                    </div>
+                                </div>
                             </div>
                             
                             <button type="button" class="btn" onclick="compressImages()">
@@ -128,7 +121,12 @@
                             
                             <div class="form-group">
                                 <label for="convertOutput">输出路径:</label>
-                                <input type="text" id="convertOutput" name="output_path" placeholder="转换后的图片保存路径">
+                                <div class="file-input-group">
+                                    <input type="text" id="convertOutput" name="output_path" placeholder="转换后的图片保存路径">
+                                    <button type="button" class="file-btn" onclick="setOutputToSource('convertDir', 'convertOutput')" title="设置为源路径">
+                                        <i class="fas fa-copy"></i> 同源
+                                    </button>
+                                </div>
                             </div>
                             
                             <div class="form-group">

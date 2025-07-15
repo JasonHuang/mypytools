@@ -15,7 +15,7 @@ def get_file_size_mb(file_path):
     size_bytes = os.path.getsize(file_path)
     return size_bytes / (1024 * 1024)
 
-def compress_image(input_path, output_path=None, target_size_mb=2.0, quality_start=95, quality_min=10):
+def compress_image(input_path, output_path=None, target_size_mb=2.0, quality_start=95, quality_min=10, log_func=None):
     """压缩图片到指定大小以下
     
     Args:
@@ -56,7 +56,10 @@ def compress_image(input_path, output_path=None, target_size_mb=2.0, quality_sta
             
             # 获取原始文件大小
             original_size = get_file_size_mb(input_path)
-            print(f"原始文件大小: {original_size:.2f} MB")
+            if log_func:
+                log_func(f"📊 原始文件大小: {original_size:.2f} MB")
+            else:
+                print(f"原始文件大小: {original_size:.2f} MB")
             
             # 如果原始文件已经小于目标大小，直接复制
             if original_size <= target_size_mb:
@@ -65,7 +68,10 @@ def compress_image(input_path, output_path=None, target_size_mb=2.0, quality_sta
                     if exif_dict:
                         save_kwargs['exif'] = exif_dict
                     img.save(output_path, **save_kwargs)
-                print(f"文件已经小于 {target_size_mb} MB，无需压缩")
+                if log_func:
+                    log_func(f"ℹ️ 文件已经小于 {target_size_mb} MB，无需压缩")
+                else:
+                    print(f"文件已经小于 {target_size_mb} MB，无需压缩")
                 return True
             
             # 二分查找最佳质量参数
@@ -98,17 +104,29 @@ def compress_image(input_path, output_path=None, target_size_mb=2.0, quality_sta
             
             # 检查最终文件大小
             final_size = get_file_size_mb(output_path)
-            print(f"压缩后文件大小: {final_size:.2f} MB (质量: {best_quality})")
+            if log_func:
+                log_func(f"📊 压缩后文件大小: {final_size:.2f} MB (质量: {best_quality})")
+            else:
+                print(f"压缩后文件大小: {final_size:.2f} MB (质量: {best_quality})")
             
             if final_size <= target_size_mb:
-                print(f"✓ 成功压缩到 {target_size_mb} MB 以下")
+                if log_func:
+                    log_func(f"✅ 成功压缩到 {target_size_mb} MB 以下")
+                else:
+                    print(f"✓ 成功压缩到 {target_size_mb} MB 以下")
                 return True
             else:
-                print(f"⚠ 警告: 即使使用最低质量({quality_min})，文件大小仍为 {final_size:.2f} MB")
+                if log_func:
+                    log_func(f"⚠️ 警告: 即使使用最低质量({quality_min})，文件大小仍为 {final_size:.2f} MB")
+                else:
+                    print(f"⚠ 警告: 即使使用最低质量({quality_min})，文件大小仍为 {final_size:.2f} MB")
                 return False
                 
     except Exception as e:
-        print(f"压缩图片时出错: {e}")
+        if log_func:
+            log_func(f"❌ 压缩图片时出错: {e}")
+        else:
+            print(f"压缩图片时出错: {e}")
         return False
 
 def process_directory(directory, target_size_mb=2.0, recursive=False):

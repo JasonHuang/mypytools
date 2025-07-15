@@ -256,6 +256,98 @@ body::before {
     color: #4b5563;
 }
 
+/* 单选按钮组样式 */
+/* 文件上传区域样式 */
+.file-upload-area {
+    position: relative;
+    margin-bottom: 20px;
+}
+
+.file-upload-input {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 2;
+}
+
+.file-upload-label {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 20px;
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    background: #f8fafc;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    text-align: center;
+}
+
+.file-upload-label:hover {
+    border-color: #667eea;
+    background: #f1f5f9;
+}
+
+.file-upload-area.dragover .file-upload-label {
+    border-color: #667eea;
+    background: #e0e7ff;
+    transform: scale(1.02);
+}
+
+.file-upload-label i {
+    font-size: 2.5em;
+    color: #94a3b8;
+    margin-bottom: 12px;
+    transition: color 0.3s ease;
+}
+
+.file-upload-label:hover i {
+    color: #667eea;
+}
+
+.file-upload-label span {
+    font-size: 1.1em;
+    font-weight: 500;
+    color: #475569;
+    margin-bottom: 8px;
+}
+
+.file-upload-label small {
+    font-size: 0.9em;
+    color: #94a3b8;
+}
+
+.file-selected {
+    margin-top: 12px;
+    padding: 12px 16px;
+    background: #ecfdf5;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    color: #065f46;
+    font-size: 0.9em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.file-selected i {
+    color: #059669;
+}
+
+.file-upload-area.dragover {
+    border-color: #4CAF50;
+    background: #f0f8f0;
+    transform: scale(1.02);
+}
+
+.file-upload-area:hover {
+    border-color: #666;
+    background: #f8f9fa;
+}
+
 /* 按钮样式 */
 .btn {
     background: var(--primary-gradient);
@@ -386,6 +478,72 @@ body::before {
 .log-entry.processing {
     border-left-color: #8b5cf6;
     background: rgba(139, 92, 246, 0.1);
+}
+
+/* 下载区域样式 */
+.download-area {
+    margin-top: 20px;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.download-card {
+    background: linear-gradient(145deg, #f0f9ff, #e0f2fe);
+    border: 2px solid #0ea5e9;
+    border-radius: 16px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 8px 25px rgba(14, 165, 233, 0.15);
+}
+
+.download-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 16px;
+    color: #0369a1;
+}
+
+.download-header i {
+    font-size: 1.5em;
+}
+
+.download-header h3 {
+    margin: 0;
+    font-size: 1.3em;
+    font-weight: 600;
+}
+
+.download-info {
+    margin-bottom: 20px;
+    color: #374151;
+}
+
+.download-info p {
+    margin: 8px 0;
+    font-size: 0.95em;
+}
+
+.download-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: white;
+    text-decoration: none;
+    padding: 12px 24px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 0.95em;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3);
+}
+
+.download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(14, 165, 233, 0.4);
+    text-decoration: none;
+    color: white;
 }
 
 /* 动画效果 */
@@ -590,4 +748,70 @@ body::before {
         font-size: 12px;
         max-height: 250px;
     }
+}
+
+/* 滑块样式 */
+.slider-container {
+    margin-top: 8px;
+}
+
+.slider-container input[type="range"] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: #e5e7eb;
+    outline: none;
+    -webkit-appearance: none;
+    margin-bottom: 10px;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.slider-container input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-container input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: var(--primary-gradient);
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+    transition: all 0.3s ease;
+}
+
+.slider-container input[type="range"]::-moz-range-thumb:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.slider-display {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 5px;
+}
+
+.slider-display span {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+.slider-display small {
+    color: #6b7280;
+    font-size: 0.85em;
 }
