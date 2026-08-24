@@ -13,3 +13,8 @@ keepalive = 5
 accesslog = "-"
 errorlog = "-"
 capture_output = True
+
+# Gunicorn 25.1+ enables a control socket under $HOME by default. The container
+# root filesystem is intentionally read-only and this service does not use
+# gunicornc, so disable the socket instead of adding another writable path.
+control_socket_disable = True
