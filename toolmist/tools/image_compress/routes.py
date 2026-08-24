@@ -12,6 +12,7 @@ from ...services.images import (
     save_and_validate_upload,
     upload_extension,
 )
+from ...services.limits import guard_processing_job
 
 
 bp = Blueprint("image_compress", __name__)
@@ -32,6 +33,7 @@ def artifact_payload(job, artifact):
 
 
 @bp.post("/api/v1/tools/image-compress/jobs")
+@guard_processing_job
 def create_compression_job():
     if request.mimetype != "multipart/form-data":
         raise ApiError("UPLOAD_REQUIRED", "请通过文件上传方式提交图片")

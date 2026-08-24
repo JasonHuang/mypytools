@@ -246,6 +246,118 @@ class ApiV1TestCase(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         self.assertIn("removed_jobs=0", result.output)
 
+    def test_processing_slot_returns_busy_without_queuing(self):
+        busy_app = create_app({
+            "TESTING": True,
+            "UPLOAD_FOLDER": self.upload_root,
+            "MAX_UPLOAD_MB": 2,
+            "MAX_IMAGE_PIXELS": 1_000_000,
+            "MAX_TOTAL_PIXELS": 2_000_000,
+            "MAX_FILES_PER_JOB": 3,
+            "PROCESSING_CONCURRENCY": 1,
+            "RATE_LIMIT_REQUESTS": 20,
+            "FILE_RETENTION_HOURS": 1,
+            "ENABLE_ARTIFACT_CLEANUP": False,
+        })
+        limiter = busy_app.extensions["toolmist_processing_limiter"]
+        self.assertTrue(limiter.acquire())
+        try:
+            response = busy_app.test_client().post(
+                "/api/v1/tools/image-compress/jobs",
+                json={"source_path": "/etc/passwd"},
+            )
+        finally:
+            limiter.release()
+        self.assertEqual(response.status_code, 503)
+        self.assertEqual(response.get_json()["error"]["code"], "SERVER_BUSY")
+
+    def test_job_rate_limit_uses_remote_address(self):
+        rate_app = create_app({
+            "TESTING": True,
+            "UPLOAD_FOLDER": self.upload_root,
+            "MAX_UPLOAD_MB": 2,
+            "MAX_IMAGE_PIXELS": 1_000_000,
+            "MAX_TOTAL_PIXELS": 2_000_000,
+            "MAX_FILES_PER_JOB": 3,
+            "RATE_LIMIT_REQUESTS": 1,
+            "RATE_LIMIT_WINDOW_SECONDS": 60,
+            "FILE_RETENTION_HOURS": 1,
+            "ENABLE_ARTIFACT_CLEANUP": False,
+        })
+        client = rate_app.test_client()
+        first = client.post(
+            "/api/v1/tools/image-compress/jobs",
+            json={"source_path": "/etc/passwd"},
+        )
+        second = client.post(
+            "/api/v1/tools/image-compress/jobs",
+            json={"source_path": "/etc/passwd"},
+        )
+        self.assertEqual(first.status_code, 400)
+        self.assertEqual(second.status_code, 429)
+        self.assertEqual(second.get_json()["error"]["code"], "RATE_LIMITED")
+
+    def test_trusted_proxy_uses_last_forwarded_client(self):
+        proxy_app = create_app({
+            "TESTING": True,
+            "UPLOAD_FOLDER": self.upload_root,
+            "MAX_UPLOAD_MB": 2,
+            "MAX_IMAGE_PIXELS": 1_000_000,
+            "MAX_TOTAL_PIXELS": 2_000_000,
+            "MAX_FILES_PER_JOB": 3,
+            "RATE_LIMIT_REQUESTS": 1,
+            "RATE_LIMIT_WINDOW_SECONDS": 60,
+            "TRUST_PROXY_HEADERS": True,
+            "FILE_RETENTION_HOURS": 1,
+            "ENABLE_ARTIFACT_CLEANUP": False,
+        })
+        client = proxy_app.test_client()
+        first = client.post(
+            "/api/v1/tools/image-compress/jobs",
+            json={},
+            headers={"X-Forwarded-For": "203.0.113.10"},
+        )
+        other_client = client.post(
+            "/api/v1/tools/image-compress/jobs",
+            json={},
+            headers={"X-Forwarded-For": "203.0.113.11"},
+        )
+        repeated = client.post(
+            "/api/v1/tools/image-compress/jobs",
+            json={},
+            headers={"X-Forwarded-For": "203.0.113.10"},
+        )
+        self.assertEqual(first.status_code, 400)
+        self.assertEqual(other_client.status_code, 400)
+        self.assertEqual(repeated.status_code, 429)
+
+    def test_structured_logs_use_request_id_without_original_filename(self):
+        log_app = create_app({
+            "TESTING": False,
+            "UPLOAD_FOLDER": self.upload_root,
+            "MAX_UPLOAD_MB": 2,
+            "MAX_IMAGE_PIXELS": 1_000_000,
+            "MAX_TOTAL_PIXELS": 2_000_000,
+            "MAX_FILES_PER_JOB": 3,
+            "FILE_RETENTION_HOURS": 1,
+            "ENABLE_ARTIFACT_CLEANUP": False,
+        })
+        with self.assertLogs(log_app.logger, level="INFO") as captured:
+            response = log_app.test_client().post(
+                "/api/v1/tools/image-compress/jobs",
+                data={
+                    "target_size_mb": "1",
+                    "file": (image_bytes(), "private-original-name.png"),
+                },
+                content_type="multipart/form-data",
+            )
+        logs = "\n".join(captured.output)
+        self.assertEqual(response.status_code, 201)
+        self.assertIn('"event":"http_request"', logs)
+        self.assertIn(response.headers["X-Request-ID"], logs)
+        self.assertNotIn("private-original-name", logs)
+        self.assertNotIn(str(self.upload_root), logs)
+
 
 if __name__ == "__main__":
     unittest.main()

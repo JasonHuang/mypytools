@@ -192,6 +192,8 @@ feat: migrate initial tools to public workflows
 
 ## Phase 5：公开服务加固与运维
 
+状态：已完成；生产域名更新不在本地开发范围内。
+
 目标：在合并前完成生产风险收口。
 
 任务：

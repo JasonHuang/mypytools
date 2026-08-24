@@ -14,7 +14,7 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt
 
-COPY web_gui.py wsgi.py compress_images.py gunicorn.conf.py ./
+COPY web_gui.py wsgi.py gunicorn.conf.py ./
 COPY toolmist ./toolmist
 COPY templates ./templates
 COPY static ./static

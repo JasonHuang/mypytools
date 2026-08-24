@@ -44,11 +44,17 @@ class Config:
     MAX_FILES_PER_JOB = _read_int("MAX_FILES_PER_JOB", 10, minimum=1)
     MAX_IMAGE_PIXELS = _read_int("MAX_IMAGE_PIXELS", 40_000_000, minimum=1)
     MAX_TOTAL_PIXELS = _read_int("MAX_TOTAL_PIXELS", 100_000_000, minimum=1)
+    PROCESSING_CONCURRENCY = _read_int("PROCESSING_CONCURRENCY", 2, minimum=1)
+    RATE_LIMIT_REQUESTS = _read_int("RATE_LIMIT_REQUESTS", 20, minimum=1)
+    RATE_LIMIT_WINDOW_SECONDS = _read_int(
+        "RATE_LIMIT_WINDOW_SECONDS", 60, minimum=1
+    )
     FILE_RETENTION_HOURS = _read_int("FILE_RETENTION_HOURS", 1)
     ARTIFACT_CLEANUP_INTERVAL_SECONDS = _read_int(
         "ARTIFACT_CLEANUP_INTERVAL_SECONDS", 600, minimum=1
     )
     ENABLE_ARTIFACT_CLEANUP = _read_bool("ENABLE_ARTIFACT_CLEANUP", True)
+    TRUST_PROXY_HEADERS = _read_bool("TRUST_PROXY_HEADERS", False)
     UPLOAD_FOLDER = Path(
         os.getenv("UPLOAD_FOLDER", str(PROJECT_ROOT / "uploads"))
     ).resolve()
@@ -61,6 +67,9 @@ def apply_runtime_config(config, overrides):
         max_files = int(config["MAX_FILES_PER_JOB"])
         max_image_pixels = int(config["MAX_IMAGE_PIXELS"])
         max_total_pixels = int(config["MAX_TOTAL_PIXELS"])
+        processing_concurrency = int(config["PROCESSING_CONCURRENCY"])
+        rate_limit_requests = int(config["RATE_LIMIT_REQUESTS"])
+        rate_limit_window = int(config["RATE_LIMIT_WINDOW_SECONDS"])
         retention_hours = int(config["FILE_RETENTION_HOURS"])
         cleanup_interval = int(config["ARTIFACT_CLEANUP_INTERVAL_SECONDS"])
     except (KeyError, TypeError, ValueError) as exc:
@@ -74,6 +83,12 @@ def apply_runtime_config(config, overrides):
         raise RuntimeError("MAX_IMAGE_PIXELS must be at least 1")
     if max_total_pixels < max_image_pixels:
         raise RuntimeError("MAX_TOTAL_PIXELS cannot be smaller than MAX_IMAGE_PIXELS")
+    if processing_concurrency < 1:
+        raise RuntimeError("PROCESSING_CONCURRENCY must be at least 1")
+    if rate_limit_requests < 1:
+        raise RuntimeError("RATE_LIMIT_REQUESTS must be at least 1")
+    if rate_limit_window < 1:
+        raise RuntimeError("RATE_LIMIT_WINDOW_SECONDS must be at least 1")
     if retention_hours < 0:
         raise RuntimeError("FILE_RETENTION_HOURS cannot be negative")
     if cleanup_interval < 1:
@@ -83,10 +98,16 @@ def apply_runtime_config(config, overrides):
     config["MAX_FILES_PER_JOB"] = max_files
     config["MAX_IMAGE_PIXELS"] = max_image_pixels
     config["MAX_TOTAL_PIXELS"] = max_total_pixels
+    config["PROCESSING_CONCURRENCY"] = processing_concurrency
+    config["RATE_LIMIT_REQUESTS"] = rate_limit_requests
+    config["RATE_LIMIT_WINDOW_SECONDS"] = rate_limit_window
     config["FILE_RETENTION_HOURS"] = retention_hours
     config["ARTIFACT_CLEANUP_INTERVAL_SECONDS"] = cleanup_interval
     config["ENABLE_ARTIFACT_CLEANUP"] = _normalize_bool(
         "ENABLE_ARTIFACT_CLEANUP", config["ENABLE_ARTIFACT_CLEANUP"]
+    )
+    config["TRUST_PROXY_HEADERS"] = _normalize_bool(
+        "TRUST_PROXY_HEADERS", config["TRUST_PROXY_HEADERS"]
     )
     if "MAX_CONTENT_LENGTH" not in overrides:
         config["MAX_CONTENT_LENGTH"] = max_upload_mb * 1024 * 1024
