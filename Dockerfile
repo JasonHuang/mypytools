@@ -14,7 +14,8 @@ COPY requirements.txt ./
 RUN python -m pip install --upgrade pip \
     && python -m pip install -r requirements.txt
 
-COPY web_gui.py compress_images.py gunicorn.conf.py ./
+COPY web_gui.py wsgi.py gunicorn.conf.py ./
+COPY toolmist ./toolmist
 COPY templates ./templates
 COPY static ./static
 
@@ -28,4 +29,4 @@ EXPOSE 5001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/healthz', timeout=3)"]
 
-CMD ["gunicorn", "--config", "gunicorn.conf.py", "web_gui:app"]
+CMD ["gunicorn", "--config", "gunicorn.conf.py", "wsgi:app"]
