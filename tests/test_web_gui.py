@@ -5,7 +5,8 @@ import unittest
 
 from PIL import Image
 
-import web_gui
+from toolmist import create_app
+from toolmist.tools.registry import get_available_tools
 
 
 def image_bytes(image_format="PNG", color=(20, 80, 160, 255)):
@@ -18,24 +19,30 @@ def image_bytes(image_format="PNG", color=(20, 80, 160, 255)):
 class WebGuiTestCase(unittest.TestCase):
     def setUp(self):
         self.temp_dir = tempfile.TemporaryDirectory()
-        self.original_upload_folder = web_gui.UPLOAD_FOLDER
-        web_gui.UPLOAD_FOLDER = Path(self.temp_dir.name)
-        web_gui.app.config.update(
-            TESTING=True,
-            UPLOAD_FOLDER=self.temp_dir.name,
-            MAX_CONTENT_LENGTH=10 * 1024 * 1024,
-        )
-        self.client = web_gui.app.test_client()
+        self.app = create_app({
+            "TESTING": True,
+            "UPLOAD_FOLDER": Path(self.temp_dir.name),
+            "MAX_UPLOAD_MB": 10,
+            "MAX_CONTENT_LENGTH": 10 * 1024 * 1024,
+            "FILE_RETENTION_HOURS": 24,
+        })
+        self.client = self.app.test_client()
 
     def tearDown(self):
-        web_gui.UPLOAD_FOLDER = self.original_upload_folder
-        web_gui.app.config["UPLOAD_FOLDER"] = str(self.original_upload_folder)
         self.temp_dir.cleanup()
 
     def test_healthcheck(self):
         response = self.client.get("/healthz")
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"status": "ok"})
+
+    def test_tool_registry_contains_initial_tools(self):
+        tool_ids = {tool.id for tool in get_available_tools()}
+        self.assertEqual(tool_ids, {
+            "filename-extract",
+            "image-compress",
+            "image-convert",
+        })
 
     def test_collect_filenames_returns_download(self):
         response = self.client.post(
