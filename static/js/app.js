@@ -389,6 +389,15 @@ function collectFilenames() {
     .then(data => {
         if (data.success) {
             addLog(`✅ ${data.message}`, 'success');
+            if (data.download_url) {
+                showDownloadLink(
+                    data.download_url,
+                    data.filename,
+                    data.size,
+                    '文件名收集完成',
+                    'collectForm'
+                );
+            }
         } else {
             addLog(`❌ ${data.error || data.message}`, 'error');
         }
@@ -462,6 +471,12 @@ function compressImages() {
 function convertImages() {
     const submitBtn = event.target;
     const originalText = submitBtn.innerHTML;
+    const fileInput = document.getElementById('convertFile');
+
+    if (!fileInput.files || fileInput.files.length === 0) {
+        addLog('❌ 请先选择要转换的图片文件', 'error');
+        return;
+    }
     
     submitBtn.disabled = true;
     submitBtn.classList.add('loading');
@@ -469,37 +484,28 @@ function convertImages() {
     
     addLog('开始格式转换...', 'processing');
     
-    const convertDirInput = document.getElementById('convertDir');
-    const formData = {
-        source_path: convertDirInput.value,
-        output_path: document.getElementById('convertOutput').value,
-        target_format: document.getElementById('targetFormat').value,
-        quality: parseInt(document.getElementById('convertQuality').value)
-    };
+    const formData = new FormData();
+    Array.from(fileInput.files).forEach(file => formData.append('files', file));
+    formData.append('output_format', document.getElementById('targetFormat').value);
+    formData.append('quality', document.getElementById('convertQuality').value);
     
-    // 添加文件数据
-    if (convertDirInput.dataset.files) {
-        try {
-            formData.files_data = JSON.parse(convertDirInput.dataset.files);
-        } catch (e) {
-            addLog('❌ 文件数据解析失败', 'error');
-            submitBtn.classList.remove('loading');
-            submitBtn.disabled = false;
-            return;
-        }
-    }
-    
-    fetch('/api/convert_images', {
+    fetch('/api/convert_format', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData)
+        body: formData
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
             addLog(`✅ ${data.message}`, 'success');
+            if (data.download_url) {
+                showDownloadLink(
+                    data.download_url,
+                    data.filename,
+                    data.size,
+                    '格式转换完成',
+                    'convertForm'
+                );
+            }
         } else {
             addLog(`❌ ${data.error || data.message}`, 'error');
         }
@@ -530,6 +536,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // 初始化文件上传功能
     setupFileUpload();
+    setupConvertFileUpload();
     
     // 键盘快捷键
     document.addEventListener('keydown', function(e) {
@@ -608,6 +615,33 @@ function setupFileUpload() {
     });
 }
 
+function setupConvertFileUpload() {
+    const fileInput = document.getElementById('convertFile');
+    const uploadArea = document.getElementById('convertUploadArea');
+
+    fileInput.addEventListener('change', function(e) {
+        const files = Array.from(e.target.files);
+        const existingInfo = uploadArea.querySelector('.file-selected');
+        if (existingInfo) {
+            existingInfo.remove();
+        }
+        if (files.length === 0) {
+            return;
+        }
+
+        const totalSize = files.reduce((sum, file) => sum + file.size, 0);
+        const fileInfo = document.createElement('div');
+        fileInfo.className = 'file-selected';
+        fileInfo.innerHTML = `
+            <i class="fas fa-file-image"></i>
+            <span>已选择 ${files.length} 个文件</span>
+            <small>(${(totalSize / 1024 / 1024).toFixed(2)} MB)</small>
+        `;
+        uploadArea.appendChild(fileInfo);
+        addLog(`📁 已选择 ${files.length} 个待转换文件`, 'info');
+    });
+}
+
 // 显示选中的文件
 function showSelectedFile(file) {
     const uploadArea = document.querySelector('.file-upload-area');
@@ -632,31 +666,31 @@ function showSelectedFile(file) {
 }
 
 // 显示下载链接
-function showDownloadLink(downloadUrl, filename, size) {
+function showDownloadLink(downloadUrl, filename, size, title = '压缩完成', targetFormId = 'compressForm') {
     // 查找或创建下载区域
-    let downloadArea = document.getElementById('downloadArea');
+    const downloadAreaId = `downloadArea-${targetFormId}`;
+    let downloadArea = document.getElementById(downloadAreaId);
     if (!downloadArea) {
         downloadArea = document.createElement('div');
-        downloadArea.id = 'downloadArea';
+        downloadArea.id = downloadAreaId;
         downloadArea.className = 'download-area';
         
-        // 插入到压缩表单后面
-        const compressForm = document.getElementById('compressForm');
-        compressForm.parentNode.insertBefore(downloadArea, compressForm.nextSibling);
+        const targetForm = document.getElementById(targetFormId);
+        targetForm.parentNode.insertBefore(downloadArea, targetForm.nextSibling);
     }
     
     downloadArea.innerHTML = `
         <div class="download-card">
             <div class="download-header">
                 <i class="fas fa-download"></i>
-                <h3>压缩完成</h3>
+                <h3>${title}</h3>
             </div>
             <div class="download-info">
                 <p><strong>文件名:</strong> ${filename}</p>
                 <p><strong>大小:</strong> ${size}</p>
             </div>
             <a href="${downloadUrl}" class="download-btn" download>
-                <i class="fas fa-download"></i> 下载压缩后的图片
+                <i class="fas fa-download"></i> 下载处理结果
             </a>
         </div>
     `;
@@ -678,4 +712,3 @@ window.compressImages = compressImages;
 window.convertImages = convertImages;
 window.setOutputToSource = setOutputToSource;
 window.updateSizeDisplay = updateSizeDisplay;
-window.selectCompressSource = selectCompressSource;

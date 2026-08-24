@@ -108,30 +108,22 @@
                             <i class="fas fa-info-circle"></i> 将图片转换为其他格式，支持 HEIC、JPEG、PNG 等格式互转
                         </div>
                         
-                        <form id="convertForm">
+                        <form id="convertForm" enctype="multipart/form-data">
                             <div class="form-group">
-                                <label for="convertDir">源路径:</label>
-                                <div class="file-input-group">
-                                    <input type="text" id="convertDir" name="source_path" placeholder="请选择文件或目录" readonly>
-                                    <button type="button" class="file-btn" onclick="selectPath('convertDir')">
-                                        <i class="fas fa-folder-open"></i> 选择
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="convertOutput">输出路径:</label>
-                                <div class="file-input-group">
-                                    <input type="text" id="convertOutput" name="output_path" placeholder="转换后的图片保存路径">
-                                    <button type="button" class="file-btn" onclick="setOutputToSource('convertDir', 'convertOutput')" title="设置为源路径">
-                                        <i class="fas fa-copy"></i> 同源
-                                    </button>
+                                <label for="convertFile">选择图片文件:</label>
+                                <div class="file-upload-area" id="convertUploadArea">
+                                    <input type="file" id="convertFile" name="files" accept="image/*,.heic,.HEIC,.heif,.HEIF" multiple class="file-upload-input">
+                                    <div class="file-upload-label">
+                                        <i class="fas fa-cloud-upload-alt"></i>
+                                        <span>点击选择一张或多张图片</span>
+                                        <small>多张图片会打包为 ZIP 下载</small>
+                                    </div>
                                 </div>
                             </div>
                             
                             <div class="form-group">
                                 <label for="targetFormat">目标格式:</label>
-                                <select id="targetFormat" name="target_format">
+                                <select id="targetFormat" name="output_format">
                                     <option value="jpg">JPEG (.jpg)</option>
                                     <option value="png">PNG (.png)</option>
                                     <option value="webp">WebP (.webp)</option>
@@ -166,8 +158,7 @@
             </div>
         </div>
     </div>
-    
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
-    

@@ -1,0 +1,36 @@
+services:
+  image-tools:
+    build:
+      context: .
+    image: pytools-image-tools:latest
+    restart: unless-stopped
+    ports:
+      - "${BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-5001}:5001"
+    environment:
+      MAX_UPLOAD_MB: "${MAX_UPLOAD_MB:-50}"
+      FILE_RETENTION_HOURS: "${FILE_RETENTION_HOURS:-24}"
+      WEB_CONCURRENCY: "${WEB_CONCURRENCY:-2}"
+      GUNICORN_THREADS: "${GUNICORN_THREADS:-2}"
+      GUNICORN_TIMEOUT: "${GUNICORN_TIMEOUT:-180}"
+    volumes:
+      - image-tools-uploads:/app/uploads
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,mode=1777
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5001/healthz', timeout=3)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  image-tools-uploads:

@@ -176,6 +176,7 @@ Desktop.ini
 
 # Project specific
 *.txt
+!requirements.txt
 *.jpg
 *.jpeg
 *.png
