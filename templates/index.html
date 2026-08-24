@@ -1,164 +1,245 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="Toolmist 是一个无需注册、即开即用的轻量在线工具箱。">
+    <meta name="theme-color" content="#f3f0e8">
     <title>{{ title }}</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script defer src="{{ url_for('static', filename='js/app.js') }}"></script>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1><i class="fas fa-images"></i> {{ title }}</h1>
-            <p>专业的图片处理和文件管理工具</p>
-            <div class="status-badge">
-                <i class="fas fa-check-circle"></i> 服务运行中
+    <a class="skip-link" href="#workspace">跳到工具工作区</a>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a class="brand" href="/" aria-label="Toolmist 首页">
+                <svg class="brand__mark" viewBox="0 0 36 36" aria-hidden="true">
+                    <path d="M7 7h9v9H7zM20 7h9v9h-9zM7 20h9v9H7z"/>
+                    <path d="M20 20h9v9h-9z" class="brand__mark-accent"/>
+                </svg>
+                <span>Toolmist</span>
+            </a>
+            <div class="header-meta">
+                <span class="header-meta__copy">Small tools for everyday tasks</span>
+                <a class="health-link" href="/healthz">
+                    <span aria-hidden="true"></span> 服务状态
+                </a>
             </div>
         </div>
-        
-        <div class="main-content">
-            <div class="functions-panel">
-                <div class="tab-nav">
-                    <button class="tab-btn active" onclick="switchTab('collect')">
-                        <i class="fas fa-list"></i> 文件名收集
-                    </button>
-                    <button class="tab-btn" onclick="switchTab('compress')">
-                        <i class="fas fa-compress-alt"></i> 图片压缩
-                    </button>
-                    <button class="tab-btn" onclick="switchTab('convert')">
-                        <i class="fas fa-exchange-alt"></i> 格式转换
-                    </button>
+    </header>
+
+    <main class="page-shell">
+        <section class="intro" aria-labelledby="intro-title">
+            <p class="eyebrow">轻量 · 无需登录 · 即用即走</p>
+            <h1 id="intro-title">把日常小事，<br>做得干净利落。</h1>
+            <p class="intro__copy">这里只保留真正经常用到的工具。选择文件、完成处理、下载结果，没有账号，也没有历史记录。</p>
+            <div class="privacy-strip">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.8 2.8 8.2 7 10 4.2-1.8 7-5.2 7-10V6l-7-3Zm0 4a2 2 0 0 1 2 2v1h1v5H9v-5h1V9a2 2 0 0 1 2-2Zm0 1.5a.5.5 0 0 0-.5.5v1h1V9a.5.5 0 0 0-.5-.5Z"/></svg>
+                <p>需要上传的文件仅用于当前任务，结果会在 {{ site_limits.retention_hours }} 小时后自动删除；文件名提取完全在浏览器本地完成。</p>
+            </div>
+        </section>
+
+        <section class="tool-layout" aria-label="图片与文件工具">
+            <aside class="tool-picker" aria-labelledby="tool-picker-title">
+                <div class="section-heading">
+                    <p class="section-kicker">01 / 选择工具</p>
+                    <h2 id="tool-picker-title">图片与文件</h2>
                 </div>
-                
-                <div class="tab-content">
-                    <!-- 文件名收集 -->
-                    <div id="collect" class="tab-pane active">
-                        <div class="function-desc">
-                            <i class="fas fa-info-circle"></i> 收集指定目录中的所有图片文件名，并保存到文本文件中
+                <div class="tool-list" role="tablist" aria-orientation="vertical">
+                    {% for tool in tools %}
+                    <button
+                        class="tool-card{% if loop.first %} is-active{% endif %}"
+                        id="tab-{{ tool.id }}"
+                        type="button"
+                        role="tab"
+                        aria-selected="{{ 'true' if loop.first else 'false' }}"
+                        aria-controls="panel-{{ tool.id }}"
+                        tabindex="{{ '0' if loop.first else '-1' }}"
+                        data-tool-target="{{ tool.id }}"
+                    >
+                        <span class="tool-card__icon" aria-hidden="true">
+                            {% if tool.id == 'image-compress' %}
+                            <svg viewBox="0 0 24 24"><path d="M8 3v5H3M16 3v5h5M8 21v-5H3M16 21v-5h5M8 8 3 3m13 5 5-5M8 16l-5 5m13-5 5 5"/></svg>
+                            {% elif tool.id == 'image-convert' %}
+                            <svg viewBox="0 0 24 24"><path d="M4 7h13m0 0-3-3m3 3-3 3M20 17H7m0 0 3-3m-3 3 3 3"/></svg>
+                            {% else %}
+                            <svg viewBox="0 0 24 24"><path d="M8 6h12M8 12h12M8 18h12M3.5 6h.01M3.5 12h.01M3.5 18h.01"/></svg>
+                            {% endif %}
+                        </span>
+                        <span class="tool-card__body">
+                            <span class="tool-card__topline">
+                                <strong>{{ tool.name }}</strong>
+                                <span class="mode-tag mode-tag--{{ tool.execution }}">{{ '本地处理' if tool.execution == 'browser' else '临时上传' }}</span>
+                            </span>
+                            <span class="tool-card__description">{{ tool.description }}</span>
+                            <span class="tool-card__limits">
+                                {% for limit in tool.limits %}<span>{{ limit }}</span>{% endfor %}
+                            </span>
+                        </span>
+                    </button>
+                    {% endfor %}
+                </div>
+            </aside>
+
+            <section
+                class="workspace"
+                id="workspace"
+                data-max-upload-mb="{{ site_limits.max_upload_mb }}"
+                data-max-files="{{ site_limits.max_files }}"
+                aria-label="当前工具工作区"
+            >
+                <div class="workspace__heading">
+                    <p class="section-kicker">02 / 完成任务</p>
+                    <p class="workspace__hint">每次只做一件事，结果准备好后立即下载。</p>
+                </div>
+
+                <article class="tool-panel" id="panel-image-compress" role="tabpanel" aria-labelledby="tab-image-compress">
+                    <div class="panel-title">
+                        <div>
+                            <p class="panel-title__label">Image compress</p>
+                            <h2>图片压缩</h2>
                         </div>
-                        
-                        <form id="collectForm">
-                            <div class="form-group">
-                                <label for="collectDir">源路径:</label>
-                                <div class="file-input-group">
-                                    <input type="text" id="collectDir" name="source_path" placeholder="请选择目录" readonly>
-                                    <button type="button" class="file-btn" onclick="selectDirectory('collectDir')">
-                                        <i class="fas fa-folder-open"></i> 选择
-                                    </button>
-                                </div>
-                            </div>
-                            
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="includeSubdirs" name="include_subdirs" checked>
-                                <label for="includeSubdirs">包含子目录</label>
-                            </div>
-                            
-                            <div class="checkbox-group">
-                                <input type="checkbox" id="removeExtension" name="remove_extension">
-                                <label for="removeExtension">去除文件扩展名</label>
-                            </div>
-                            
-                            <button type="button" class="btn" onclick="collectFilenames()">
-                                <i class="fas fa-play"></i> 开始收集
-                            </button>
-                        </form>
+                        <span class="mode-pill">临时上传</span>
                     </div>
-                    
-                    <!-- 图片压缩 -->
-                    <div id="compress" class="tab-pane">
-                        <div class="function-desc">
-                            <i class="fas fa-info-circle"></i> 批量压缩图片文件，减小文件大小，支持自定义质量和尺寸
+                    <p class="panel-description">将一张图片压缩到指定大小，统一输出为兼容性更好的 JPEG。原始元数据不会写入结果。</p>
+
+                    <form id="compress-form" novalidate>
+                        <label class="dropzone" id="compress-dropzone" for="compress-file">
+                            <input id="compress-file" name="file" type="file" accept=".jpg,.jpeg,.png,.webp,.heic,.heif" required>
+                            <span class="dropzone__icon" aria-hidden="true">＋</span>
+                            <strong>选择或拖入一张图片</strong>
+                            <span>JPG、PNG、WebP、HEIC / HEIF · 最大 {{ site_limits.max_upload_mb }} MB</span>
+                        </label>
+                        <div class="file-summary" id="compress-file-summary" hidden aria-live="polite"></div>
+
+                        <div class="control-block">
+                            <div class="control-label">
+                                <label for="target-size">目标文件大小</label>
+                                <output id="target-size-output" for="target-size">2.0 MB</output>
+                            </div>
+                            <input class="range" id="target-size" name="target_size_mb" type="range" min="0.1" max="10" value="2" step="0.1">
+                            <div class="range-scale"><span>0.1 MB</span><span>10 MB</span></div>
                         </div>
-                        
-                        <form id="compressForm" enctype="multipart/form-data">
-                            <div class="form-group">
-                                <label for="compressFile">选择图片文件:</label>
-                                <div class="file-upload-area">
-                                    <input type="file" id="compressFile" name="file" accept="image/*" class="file-upload-input">
-                                    <div class="file-upload-label">
-                                        <i class="fas fa-cloud-upload-alt"></i>
-                                        <span>点击选择图片文件或拖拽到此处</span>
-                                        <small>支持 JPG、PNG、WebP 等格式</small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="targetSize">目标文件大小:</label>
-                                <div class="slider-container">
-                                    <input type="range" id="targetSize" name="target_size_mb" min="0.5" max="10" step="0.5" value="2" oninput="updateSizeDisplay(this.value)">
-                                    <div class="slider-display">
-                                        <span id="sizeDisplay">2.0 MB</span>
-                                        <small>拖动滑块调整目标大小</small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <button type="button" class="btn" onclick="compressImages()">
-                                <i class="fas fa-play"></i> 开始压缩
-                            </button>
-                        </form>
+
+                        <div class="form-actions">
+                            <button class="button button--primary" type="submit">开始压缩 <span aria-hidden="true">→</span></button>
+                            <button class="button button--quiet" type="reset">清空</button>
+                        </div>
+                    </form>
+                    <div class="task-status" id="compress-status" role="status" aria-live="polite" hidden></div>
+                    <div class="result-card" id="compress-result" hidden></div>
+                </article>
+
+                <article class="tool-panel" id="panel-image-convert" role="tabpanel" aria-labelledby="tab-image-convert" hidden>
+                    <div class="panel-title">
+                        <div>
+                            <p class="panel-title__label">Image convert</p>
+                            <h2>图片格式转换</h2>
+                        </div>
+                        <span class="mode-pill">临时上传</span>
                     </div>
-                    
-                    <!-- 格式转换 -->
-                    <div id="convert" class="tab-pane">
-                        <div class="function-desc">
-                            <i class="fas fa-info-circle"></i> 将图片转换为其他格式，支持 HEIC、JPEG、PNG 等格式互转
-                        </div>
-                        
-                        <form id="convertForm" enctype="multipart/form-data">
-                            <div class="form-group">
-                                <label for="convertFile">选择图片文件:</label>
-                                <div class="file-upload-area" id="convertUploadArea">
-                                    <input type="file" id="convertFile" name="files" accept="image/*,.heic,.HEIC,.heif,.HEIF" multiple class="file-upload-input">
-                                    <div class="file-upload-label">
-                                        <i class="fas fa-cloud-upload-alt"></i>
-                                        <span>点击选择一张或多张图片</span>
-                                        <small>多张图片会打包为 ZIP 下载</small>
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="form-group">
-                                <label for="targetFormat">目标格式:</label>
-                                <select id="targetFormat" name="output_format">
+                    <p class="panel-description">一次转换一张或多张图片。单张直接下载，多张自动整理为一个 ZIP。</p>
+
+                    <form id="convert-form" novalidate>
+                        <label class="dropzone" id="convert-dropzone" for="convert-files">
+                            <input id="convert-files" name="files" type="file" accept=".jpg,.jpeg,.png,.webp,.bmp,.tif,.tiff,.heic,.heif" multiple required>
+                            <span class="dropzone__icon" aria-hidden="true">＋</span>
+                            <strong>选择或拖入图片</strong>
+                            <span>最多 {{ site_limits.max_files }} 张，总计不超过 {{ site_limits.max_upload_mb }} MB</span>
+                        </label>
+                        <div class="file-summary" id="convert-file-summary" hidden aria-live="polite"></div>
+
+                        <div class="control-grid">
+                            <div class="field">
+                                <label for="target-format">目标格式</label>
+                                <select id="target-format" name="output_format">
                                     <option value="jpg">JPEG (.jpg)</option>
                                     <option value="png">PNG (.png)</option>
                                     <option value="webp">WebP (.webp)</option>
                                 </select>
                             </div>
-                            
-                            <div class="form-group">
-                                <label for="convertQuality">转换质量 (1-100):</label>
-                                <input type="number" id="convertQuality" name="quality" min="1" max="100" value="95">
+                            <div class="field">
+                                <div class="control-label">
+                                    <label for="convert-quality">输出质量</label>
+                                    <output id="convert-quality-output" for="convert-quality">90</output>
+                                </div>
+                                <input class="range" id="convert-quality" name="quality" type="range" min="1" max="100" value="90" step="1">
                             </div>
-                            
-                            <button type="button" class="btn" onclick="convertImages()">
-                                <i class="fas fa-play"></i> 开始转换
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="logs-panel">
-                <div class="logs-header">
-                    <div class="logs-title">
-                        <i class="fas fa-terminal"></i> 实时日志
-                    </div>
-                    <button class="clear-btn" onclick="clearLogs()">
-                        <i class="fas fa-trash"></i> 清除
-                    </button>
-                </div>
-                <div class="logs-content" id="logsContent">
-                    <!-- 日志内容将通过 JavaScript 动态添加 -->
-                </div>
-            </div>
-        </div>
-    </div>
+                        </div>
 
-    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+                        <div class="form-actions">
+                            <button class="button button--primary" type="submit">开始转换 <span aria-hidden="true">→</span></button>
+                            <button class="button button--quiet" type="reset">清空</button>
+                        </div>
+                    </form>
+                    <div class="task-status" id="convert-status" role="status" aria-live="polite" hidden></div>
+                    <div class="result-card" id="convert-result" hidden></div>
+                </article>
+
+                <article class="tool-panel" id="panel-filename-extract" role="tabpanel" aria-labelledby="tab-filename-extract" hidden>
+                    <div class="panel-title">
+                        <div>
+                            <p class="panel-title__label">Filename extract</p>
+                            <h2>文件名提取</h2>
+                        </div>
+                        <span class="mode-pill mode-pill--local">浏览器本地</span>
+                    </div>
+                    <p class="panel-description">从本地文件或整个目录提取名称，并生成 TXT。文件和文件名列表都不会发送到服务器。</p>
+
+                    <form id="filename-form" novalidate>
+                        <div class="local-notice">
+                            <span aria-hidden="true">✓</span>
+                            <p><strong>本地处理</strong> 网络断开后，已打开的页面仍可完成这一步。</p>
+                        </div>
+                        <div class="selection-grid">
+                            <label class="selection-action" for="filename-files">
+                                <input class="visually-hidden" id="filename-files" type="file" multiple>
+                                <span aria-hidden="true">＋</span>
+                                <strong>选择多个文件</strong>
+                                <small>适合整理一组零散文件</small>
+                            </label>
+                            <label class="selection-action" for="filename-directory">
+                                <input class="visually-hidden" id="filename-directory" type="file" webkitdirectory directory multiple>
+                                <span aria-hidden="true">↳</span>
+                                <strong>选择整个目录</strong>
+                                <small>可保留相对路径</small>
+                            </label>
+                        </div>
+                        <div class="file-summary" id="filename-file-summary" hidden aria-live="polite"></div>
+
+                        <fieldset class="option-list">
+                            <legend>导出选项</legend>
+                            <label class="check-row"><input id="include-subdirs" type="checkbox" checked><span><strong>包含子目录中的文件</strong><small>关闭后只保留所选目录第一层文件</small></span></label>
+                            <label class="check-row"><input id="include-relative-path" type="checkbox"><span><strong>保留相对路径</strong><small>例如 photos/2026/image.jpg</small></span></label>
+                            <label class="check-row"><input id="remove-extension" type="checkbox"><span><strong>移除扩展名</strong><small>image.jpg 将导出为 image</small></span></label>
+                        </fieldset>
+                        <div class="field">
+                            <label for="filename-output">下载文件名</label>
+                            <input id="filename-output" type="text" value="filenames.txt" maxlength="80" autocomplete="off">
+                        </div>
+
+                        <div class="form-actions">
+                            <button class="button button--primary" type="submit">生成 TXT <span aria-hidden="true">→</span></button>
+                            <button class="button button--quiet" type="reset">清空</button>
+                        </div>
+                    </form>
+                    <div class="task-status" id="filename-status" role="status" aria-live="polite" hidden></div>
+                    <div class="result-card" id="filename-result" hidden></div>
+                </article>
+
+                <noscript><p class="noscript">这些工具需要浏览器启用 JavaScript 才能使用。</p></noscript>
+            </section>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div>
+            <strong>Toolmist</strong>
+            <span>常用工具，即开即用。</span>
+        </div>
+        <p>不建立用户文件库 · 不保留处理历史 · 临时结果 {{ site_limits.retention_hours }} 小时后删除</p>
+    </footer>
 </body>
 </html>

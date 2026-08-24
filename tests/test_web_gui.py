@@ -36,6 +36,17 @@ class WebGuiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"status": "ok"})
 
+    def test_public_home_uses_safe_tool_workspace(self):
+        response = self.client.get("/")
+        page = response.get_data(as_text=True)
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("Toolmist", page)
+        self.assertIn("文件名提取完全在浏览器本地完成", page)
+        self.assertIn('data-tool-target="image-compress"', page)
+        self.assertNotIn("实时日志", page)
+        self.assertNotIn("onclick=", page)
+        self.assertNotIn("cdnjs.cloudflare.com", page)
+
     def test_tool_registry_contains_initial_tools(self):
         tool_ids = {tool.id for tool in get_available_tools()}
         self.assertEqual(tool_ids, {
