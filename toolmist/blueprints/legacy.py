@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """Phase 1 compatibility routes for the existing image tools."""
 
-from collections import deque
 from datetime import datetime, timedelta
 import os
 import uuid
@@ -30,15 +29,10 @@ ALLOWED_IMAGE_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff", ".heic", ".heif"
 }
 
-# 这些日志只用于页面诊断，限制长度以避免长时间运行后占用过多内存。
-operation_logs = deque(maxlen=200)
-
-
 def add_log(message):
-    """添加一条带时间戳的操作日志。"""
+    """Write a concise compatibility-operation log to stdout."""
     timestamp = datetime.now().strftime("%H:%M:%S")
     log_entry = f"[{timestamp}] {message}"
-    operation_logs.append(log_entry)
     print(log_entry, flush=True)
 
 
@@ -66,10 +60,12 @@ def cleanup_expired_files():
     cutoff = datetime.now() - timedelta(hours=retention_hours)
     for path in upload_folder().iterdir():
         try:
+            if path.name.startswith("."):
+                continue
             if path.is_file() and datetime.fromtimestamp(path.stat().st_mtime) < cutoff:
                 path.unlink()
         except OSError as exc:
-            add_log(f"⚠️ 无法清理临时文件 {path.name}: {exc}")
+            add_log(f"⚠️ 临时文件清理失败: {type(exc).__name__}")
 
 
 def download_payload(stored_name, download_name, message):
@@ -115,7 +111,7 @@ def handle_file_upload_compression():
         output_path = artifact_folder / stored_output_name
 
         uploaded_file.save(input_path)
-        add_log(f"🗜️ 正在压缩 {safe_filename}，目标大小 {target_size_mb} MB")
+        add_log(f"🗜️ 正在压缩 1 张图片，目标大小 {target_size_mb} MB")
 
         from compress_images import compress_image
 
@@ -128,30 +124,19 @@ def handle_file_upload_compression():
         if not success:
             return json_error("图片压缩失败，请尝试调大目标大小", 422)
 
-        add_log(f"✅ 图片压缩完成: {output_name}")
+        add_log("✅ 图片压缩完成")
         keep_output = True
         return download_payload(stored_output_name, output_name, "图片压缩成功")
     except (TypeError, ValueError):
         return json_error("目标大小格式不正确")
     except Exception as exc:
-        return json_error(f"图片压缩失败: {exc}", 422)
+        add_log(f"❌ 图片压缩失败: {type(exc).__name__}")
+        return json_error("图片压缩失败，请稍后重试", 422)
     finally:
         if input_path:
             input_path.unlink(missing_ok=True)
         if output_path and not keep_output:
             output_path.unlink(missing_ok=True)
-
-
-@bp.get("/api/logs")
-def get_logs():
-    return jsonify({"logs": list(operation_logs)})
-
-
-@bp.post("/api/clear_logs")
-def clear_logs():
-    operation_logs.clear()
-    add_log("📋 日志已清除")
-    return jsonify({"success": True})
 
 
 @bp.post("/api/collect_filenames")
@@ -196,7 +181,8 @@ def collect_filenames():
             f"文件名收集完成！共收集 {len(filenames)} 个文件名",
         )
     except Exception as exc:
-        return json_error(f"文件名收集失败: {exc}", 422)
+        add_log(f"❌ 文件名收集失败: {type(exc).__name__}")
+        return json_error("文件名收集失败，请稍后重试", 422)
 
 
 @bp.post("/api/compress_images")
@@ -216,7 +202,7 @@ def download_file(filename):
         abort(404)
 
     requested_download_name = clean_filename(request.args.get("name"), safe_stored_name)
-    add_log(f"📥 下载文件: {requested_download_name}")
+    add_log("📥 下载临时结果")
     return send_from_directory(
         artifact_folder,
         safe_stored_name,
@@ -271,7 +257,7 @@ def convert_format():
             safe_filename = clean_filename(uploaded_file.filename)
             stem, extension = os.path.splitext(safe_filename)
             if extension.lower() not in ALLOWED_IMAGE_EXTENSIONS:
-                return json_error(f"不支持的图片格式: {safe_filename}")
+                return json_error("上传内容包含不支持的图片格式")
 
             input_path = artifact_folder / f"{job_id}_{index}_source{extension.lower()}"
             output_name = f"{stem}.{output_format}"
@@ -297,7 +283,7 @@ def convert_format():
                     converted.close()
 
             archive_entries.append((output_path, output_name))
-            add_log(f"✅ 格式转换完成: {safe_filename} -> {output_name}")
+            add_log(f"✅ 已完成第 {index} 张图片的格式转换")
 
         if len(archive_entries) == 1:
             output_path, output_name = archive_entries[0]
@@ -324,7 +310,8 @@ def convert_format():
     except (TypeError, ValueError):
         return json_error("转换质量格式不正确")
     except Exception as exc:
-        return json_error(f"格式转换失败: {exc}", 422)
+        add_log(f"❌ 格式转换失败: {type(exc).__name__}")
+        return json_error("格式转换失败，请稍后重试", 422)
     finally:
         for path in input_paths + output_paths:
             path.unlink(missing_ok=True)

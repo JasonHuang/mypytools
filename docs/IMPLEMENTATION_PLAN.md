@@ -58,6 +58,8 @@ docs: define Toolmist public toolbox redesign
 
 ## Phase 1：应用骨架与工具注册表
 
+状态：已完成。
+
 目标：拆分 `web_gui.py`，但不改变现有工具行为。
 
 任务：
@@ -84,6 +86,8 @@ refactor: introduce Toolmist application structure
 ```
 
 ## Phase 2：任务制临时文件与 API v1
+
+状态：已完成。
 
 目标：建立适合公开站的服务端处理边界。
 
