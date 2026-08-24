@@ -47,6 +47,26 @@ class WebGuiTestCase(unittest.TestCase):
         self.assertNotIn("onclick=", page)
         self.assertNotIn("cdnjs.cloudflare.com", page)
 
+    def test_frontend_uses_v1_and_local_filename_workflows(self):
+        script = (Path(__file__).parent.parent / "static/js/app.mjs").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("/api/v1/tools/image-compress/jobs", script)
+        self.assertIn("/api/v1/tools/image-convert/jobs", script)
+        self.assertIn("new Blob", script)
+        self.assertIn("URL.createObjectURL", script)
+        self.assertNotIn("/api/collect_filenames", script)
+        self.assertNotIn("/api/compress_images", script)
+        self.assertNotIn("/api/convert_format", script)
+        self.assertNotIn(".innerHTML", script)
+
+        with self.client.get("/static/js/app.mjs") as app_module:
+            self.assertEqual(app_module.status_code, 200)
+            self.assertEqual(app_module.mimetype, "text/javascript")
+        with self.client.get("/static/js/core.mjs") as core_module:
+            self.assertEqual(core_module.status_code, 200)
+            self.assertEqual(core_module.mimetype, "text/javascript")
+
     def test_tool_registry_contains_initial_tools(self):
         tool_ids = {tool.id for tool in get_available_tools()}
         self.assertEqual(tool_ids, {

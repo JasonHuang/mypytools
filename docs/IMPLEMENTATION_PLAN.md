@@ -120,6 +120,8 @@ feat: add job-scoped processing API
 
 ## Phase 3：公开工具站页面重构
 
+状态：实现完成；待浏览器视觉验收。
+
 目标：把页面从后台式 GUI 改成公开工具产品。
 
 任务：
@@ -149,6 +151,8 @@ feat: redesign Toolmist public interface
 ```
 
 ## Phase 4：三个首期工具接入
+
+状态：实现完成；待浏览器交互验收。
 
 目标：完成首期真实工作流。
 
